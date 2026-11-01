@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Pilkades Digital</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        .app-container {
+            width: 100%; max-width: 900px; height: 100%; max-height: 700px;
+            background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        .header { background: #2c3e50; color: white; padding: 15px; text-align: center; font-size: 14px; z-index: 10; }
+        
+        .screen { display: none; flex: 1; padding: 20px; overflow-y: auto; text-align: center; position: relative; }
+        .screen.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Layar 1: Kandidat */
+        .kandidat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+        
+        .kandidat-card { 
+            background: #fff; border: 2px solid #eee; border-radius: 10px; padding: 15px; 
+            cursor: pointer; transition: 0.2s; position: relative;
+            display: flex; flex-direction: column; align-items: center; z-index: 10;
+        }
+        
+        .kandidat-card:hover { border-color: #3498db; transform: translateY(-2px); }
+        .kandidat-card.selected { border-color: #e74c3c; background: #fdf2f2; }
+        
+        .foto-container {
+            position: relative; width: 100%; height: 150px; margin-bottom: 10px;
+            display: flex; justify-content: center;
+        }
+
+        .foto-kandidat { 
+            width: 120px; height: 150px; background-color: #ecf0f1; 
+            border-radius: 8px; object-fit: cover; object-position: top;
+        }
+
+        .siluet {
+            width: 120px; height: 150px; background-color: #bdc3c7;
+            border-radius: 8px; display: flex; justify-content: center; align-items: flex-end; overflow: hidden;
+        }
+        
+        .siluet svg { width: 80%; height: 80%; fill: #7f8c8d; }
+
+        .nomor-urut {
+            position: absolute; top: -10px; background-color: #e74c3c; color: white;
+            font-weight: bold; font-size: 18px; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 20;
+        }
+
+        .nama-kandidat { font-weight: bold; font-size: 16px; color: #2c3e50; min-height: 24px; }
+        
+        .btn-pilih { 
+            background: #e74c3c; color: white; border: none; padding: 15px 30px; font-size: 20px; 
+            font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; margin-top: 20px; 
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4); transition: 0.2s; position: relative; z-index: 10;
+        }
+        .btn-pilih:disabled { background: #bdc3c7; box-shadow: none; cursor: not-allowed; }
+        .btn-pilih:active:not(:disabled) { transform: scale(0.98); }
+
+        /* Layar 2: Konfirmasi */
+        .konfirmasi-box { 
+            background: #ecf0f1; padding: 20px; border-radius: 15px; margin-top: 20px; 
+            display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10;
+        }
+        .konfirmasi-box img { width: 150px; height: 180px; border-radius: 10px; border: 3px solid #e74c3c; margin-bottom: 15px; object-fit: cover; object-position: top;}
+        .konfirmasi-box .siluet { width: 150px; height: 180px; border-radius: 10px; border: 3px solid #e74c3c; margin-bottom: 15px; }
+        
+        .btn-group { display: flex; gap: 15px; margin-top: 20px; position: relative; z-index: 10;}
+        .btn-batal { background: #e74c3c; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 10px; flex: 1; cursor: pointer; }
+        .btn-lanjut { background: #2980b9; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 10px; flex: 1; cursor: pointer; }
+
+        /* Layar 3: Sukses */
+        #screen-sukses { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; position: relative; overflow: hidden; cursor: pointer; }
+        #screen-sukses.active { display: flex; }
+        
+        .bg-blur-replika { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 20px; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+        .bg-blur-replika .judul-blur { margin-bottom: 20px; opacity: 0.5; }
+        .bg-blur-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 800px; }
+        .bg-blur-card { background: #fff; border: 2px solid #eee; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+
+        .bg-blur-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backdrop-filter: blur(8px); background: rgba(0, 0, 0, 0.4); z-index: 2; }
+
+        .sukses-content { 
+            position: relative; z-index: 10; background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+            max-width: 80%; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; 
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .sukses-icon { font-size: 80px; color: #2ecc71; margin-bottom: 10px; }
+        
+        @media (min-width: 768px) {
+            .kandidat-grid { grid-template-columns: repeat(4, 1fr); }
+            .bg-blur-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h3>PILKADES DESA DIGITAL (SIMULASI)</h3>
+        <p>Desa Cicinde Selatan - Tahun 2026</p>
+    </div>
+
+    <!-- LAYAR 1: DAFTAR KANDIDAT -->
+    <div id="screen-kandidat" class="screen active">
+        <h3>Silakan Pilih Calon Kepala Desa</h3>
+        <p style="font-size: 14px; color: #7f8c8d;">Tekan pada kotak kandidat yang Anda pilih</p>
+        
+        <div class="kandidat-grid">
+            
+            <!-- Kandidat 1 -->
+            <div class="kandidat-card" onclick="pilihKandidat(1, '', false)">
+                <div class="foto-container">
+                    <div class="nomor-urut">1</div>
+                    <div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+                </div>
+                <div class="nama-kandidat"></div>
+            </div>
+
+            <!-- Kandidat 2 -->
+            <div class="kandidat-card" onclick="pilihKandidat(2, '', false)">
+                <div class="foto-container">
+                    <div class="nomor-urut">2</div>
+                    <div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+                </div>
+                <div class="nama-kandidat"></div>
+            </div>
+
+            <!-- Kandidat 3 -->
+            <div class="kandidat-card" onclick="pilihKandidat(3, '', false)">
+                <div class="foto-container">
+                    <div class="nomor-urut">3</div>
+                    <div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+                </div>
+                <div class="nama-kandidat"></div>
+            </div>
+
+            <!-- Kandidat 4 (PARMAN) -->
+            <div class="kandidat-card" onclick="pilihKandidat(4, 'PARMAN', true)">
+                <div class="foto-container">
+                    <div class="nomor-urut">4</div>
+                    <!-- Memanggil file parman.jpg -->
+                    <img src="parman.jpg" class="foto-kandidat" alt="Foto Parman">
+                </div>
+                <div class="nama-kandidat">PARMAN</div>
+            </div>
+
+        </div>
+
+        <button id="btn-pilih-utama" class="btn-pilih" disabled onclick="tampilKonfirmasi()">PILIH KANDIDAT INI</button>
+    </div>
+
+    <!-- LAYAR 2: KONFIRMASI -->
+    <div id="screen-konfirmasi" class="screen">
+        <h3>Konfirmasi Pilihan Anda</h3>
+        <p>Apakah Anda yakin memilih kandidat ini?</p>
+        
+        <div class="konfirmasi-box">
+            <div id="konfirmasi-foto-container"></div>
+            <h2 id="nama-konfirmasi" style="margin-top: 10px;">Nama Kandidat</h2>
+            <p id="nomor-konfirmasi">Calon Nomor Urut X</p>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-batal" onclick="kembaliPilih()">ULANGI</button>
+            <button class="btn-lanjut" onclick="prosesPilih()">PILIH</button>
+        </div>
+    </div>
+
+    <!-- LAYAR 3: SUKSES -->
+    <div id="screen-sukses" class="screen" onclick="resetAplikasi()">
+        
+        <div class="bg-blur-replika">
+            <div class="judul-blur">
+                <h3>Silakan Pilih Calon Kepala Desa</h3>
+            </div>
+            <div class="bg-blur-grid">
+                <div class="bg-blur-card"><div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div>
+                <div class="bg-blur-card"><div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div>
+                <div class="bg-blur-card"><div class="siluet"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div>
+                <!-- Background Parman memanggil file parman.jpg -->
+                <div class="bg-blur-card"><img src="parman.jpg" class="foto-kandidat" alt="Parman Blur"></div>
+            </div>
+        </div>
+
+        <div class="bg-blur-overlay"></div>
+
+        <div class="sukses-content">
+            <div class="sukses-icon">✅</div>
+            <h2>Terima Kasih!</h2>
+            <p style="margin-top: 10px; font-size: 18px; font-weight: bold; color: #2c3e50;">Suara Anda telah berhasil direkam.</p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let kandidatTerpilih = null;
+
+    // Fungsi memilih kandidat
+    function pilihKandidat(nomor, nama, punyaFoto) {
+        const cards = document.querySelectorAll('.kandidat-card');
+        cards.forEach(card => card.classList.remove('selected'));
+
+        event.currentTarget.classList.add('selected');
+
+        // Simpan data, kita tambahkan flag 'punyaFoto' (true/false)
+        kandidatTerpilih = { nomor: nomor, nama: nama, punyaFoto: punyaFoto };
+
+        document.getElementById('btn-pilih-utama').disabled = false;
+    }
+
+    // Fungsi Konfirmasi
+    function tampilKonfirmasi() {
+        if (!kandidatTerpilih) return;
+
+        let fotoHTML = '';
+        
+        // Jika punya foto, panggil parman.jpg. Jika tidak, tampilkan siluet.
+        if (kandidatTerpilih.punyaFoto) {
+            fotoHTML = `<img src="parman.jpg" alt="Foto Parman">`;
+        } else {
+            fotoHTML = `
+                <div class="siluet" style="margin: 0 auto;">
+                    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </div>`;
+        }
+
+        document.getElementById('konfirmasi-foto-container').innerHTML = fotoHTML;
+        document.getElementById('nama-konfirmasi').innerText = kandidatTerpilih.nama;
+        document.getElementById('nomor-konfirmasi').innerText = "Calon Nomor Urut " + kandidatTerpilih.nomor;
+
+        gantiLayar('screen-konfirmasi');
+    }
+
+    function kembaliPilih() {
+        gantiLayar('screen-kandidat');
+    }
+
+    function prosesPilih() {
+        gantiLayar('screen-sukses');
+    }
+
+    function resetAplikasi() {
+        kandidatTerpilih = null;
+        document.getElementById('btn-pilih-utama').disabled = true;
+        
+        const cards = document.querySelectorAll('.kandidat-card');
+        cards.forEach(card => card.classList.remove('selected'));
+
+        gantiLayar('screen-kandidat');
+    }
+
+    function gantiLayar(idLayar) {
+        const screens = document.querySelectorAll('.screen');
+        screens.forEach(screen => screen.classList.remove('active'));
+        document.getElementById(idLayar).classList.add('active');
+    }
+</script>
+
+</body>
+</html>
